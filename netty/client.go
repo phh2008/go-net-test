@@ -41,7 +41,7 @@ var (
 )
 
 const (
-	WritePkgTimeout = time.Millisecond * 1000
+	WritePkgTimeout = time.Millisecond * 2000
 )
 
 func init() {
@@ -53,15 +53,15 @@ func init() {
 ////////////////////////////////////////////////////////////////////
 
 type EchoClient struct {
-	lock        sync.RWMutex
-	sessions    []*clientEchoSession
-	gettyClient getty.Client
-	conf        Config
+	Lock        sync.RWMutex
+	Sessions    []*ClientEchoSession
+	GettyClient getty.Client
+	Conf        Config
 }
 
-type clientEchoSession struct {
-	session getty.Session
-	reqNum  int32
+type ClientEchoSession struct {
+	Session getty.Session
+	ReqNum  int32
 }
 
 // StartClient 启用客户端
@@ -73,14 +73,17 @@ func StartClient(conf Config) *EchoClient {
 		clientOpts = append(clientOpts, getty.WithConnectionNumber(conf.ConnectionNum))
 	}
 	var client = new(EchoClient)
-	client.conf = conf
-	client.gettyClient = getty.NewTCPClient(clientOpts...)
+	client.Conf = conf
+	client.GettyClient = getty.NewTCPClient(clientOpts...)
+	// 事件监听器（业务处理）
 	messageHandler := NewEchoMessageHandler(client)
-	client.gettyClient.RunEventLoop(newSession(conf, messageHandler))
+	// 解码处理器
+	var pkgHandler = NewEchoPackageHandler()
+	client.GettyClient.RunEventLoop(newSession(conf, messageHandler, pkgHandler))
 	return client
 }
 
-func newSession(conf Config, msgHandler *EchoMessageHandler) func(getty.Session) error {
+func newSession(conf Config, eventHandler getty.EventListener, pkgHandler getty.ReadWriter) func(getty.Session) error {
 	return func(session getty.Session) error {
 		var (
 			ok      bool
@@ -105,8 +108,8 @@ func newSession(conf Config, msgHandler *EchoMessageHandler) func(getty.Session)
 
 		session.SetName(conf.GettySessionParam.SessionName)
 		session.SetMaxMsgLen(conf.GettySessionParam.MaxMsgLen)
-		session.SetPkgHandler(echoPkgHandler)
-		session.SetEventListener(msgHandler)
+		session.SetPkgHandler(pkgHandler)
+		session.SetEventListener(eventHandler)
 		session.SetReadTimeout(conf.GettySessionParam.TcpReadTimeout2)
 		session.SetWriteTimeout(conf.GettySessionParam.TcpWriteTimeout2)
 		session.SetCronPeriod((int)(conf.HeartbeatPeriod2.Nanoseconds() / 1e6))
@@ -124,29 +127,29 @@ func (c *EchoClient) IsAvailable() bool {
 }
 
 func (c *EchoClient) Close() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.gettyClient != nil {
-		c.gettyClient.Close()
-		c.gettyClient = nil
-		for _, s := range c.sessions {
+	c.Lock.Lock()
+	defer c.Lock.Unlock()
+	if c.GettyClient != nil {
+		c.GettyClient.Close()
+		c.GettyClient = nil
+		for _, s := range c.Sessions {
 			log.Info("close client session{%s, last active:%s, request number:%d}",
-				s.session.Stat(), s.session.GetActive().String(), s.reqNum)
-			s.session.Close()
+				s.Session.Stat(), s.Session.GetActive().String(), s.ReqNum)
+			s.Session.Close()
 		}
-		c.sessions = c.sessions[:0]
+		c.Sessions = c.Sessions[:0]
 	}
 }
 
 func (c *EchoClient) SelectSession() getty.Session {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	count := len(c.sessions)
+	c.Lock.RLock()
+	defer c.Lock.RUnlock()
+	count := len(c.Sessions)
 	if count == 0 {
 		log.Info("client session array is nil...")
 		return nil
 	}
-	return c.sessions[rand.Int31n(int32(count))].session
+	return c.Sessions[rand.Int31n(int32(count))].Session
 }
 
 func (c *EchoClient) AddSession(session getty.Session) {
@@ -154,57 +157,57 @@ func (c *EchoClient) AddSession(session getty.Session) {
 	if session == nil {
 		return
 	}
-	c.lock.Lock()
-	c.sessions = append(c.sessions, &clientEchoSession{session: session})
-	c.lock.Unlock()
+	c.Lock.Lock()
+	c.Sessions = append(c.Sessions, &ClientEchoSession{Session: session})
+	c.Lock.Unlock()
 }
 
 func (c *EchoClient) RemoveSession(session getty.Session) {
 	if session == nil {
 		return
 	}
-	c.lock.Lock()
-	for i, s := range c.sessions {
-		if s.session == session {
-			c.sessions = append(c.sessions[:i], c.sessions[i+1:]...)
+	c.Lock.Lock()
+	for i, s := range c.Sessions {
+		if s.Session == session {
+			c.Sessions = append(c.Sessions[:i], c.Sessions[i+1:]...)
 			log.Debug("delete session{%s}, its index{%d}", session.Stat(), i)
 			break
 		}
 	}
-	log.Info("after remove session{%s}, left session number:%d", session.Stat(), len(c.sessions))
+	log.Info("after remove session{%s}, left session number:%d", session.Stat(), len(c.Sessions))
 
-	c.lock.Unlock()
+	c.Lock.Unlock()
 }
 
 func (c *EchoClient) UpdateSession(session getty.Session) {
 	if session == nil {
 		return
 	}
-	c.lock.Lock()
-	for i, s := range c.sessions {
-		if s.session == session {
-			c.sessions[i].reqNum++
+	c.Lock.Lock()
+	for i, s := range c.Sessions {
+		if s.Session == session {
+			c.Sessions[i].ReqNum++
 			break
 		}
 	}
-	c.lock.Unlock()
+	c.Lock.Unlock()
 }
 
-func (c *EchoClient) GetClientEchoSession(session getty.Session) (clientEchoSession, error) {
+func (c *EchoClient) GetClientEchoSession(session getty.Session) (ClientEchoSession, error) {
 	var (
 		err         error
-		echoSession clientEchoSession
+		echoSession ClientEchoSession
 	)
-	c.lock.Lock()
+	c.Lock.Lock()
 	err = errSessionNotExist
-	for _, s := range c.sessions {
-		if s.session == session {
+	for _, s := range c.Sessions {
+		if s.Session == session {
 			echoSession = *s
 			err = nil
 			break
 		}
 	}
-	c.lock.Unlock()
+	c.Lock.Unlock()
 	return echoSession, err
 }
 

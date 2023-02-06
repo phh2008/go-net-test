@@ -29,22 +29,6 @@ import (
 	log "github.com/AlexStocks/getty/util"
 )
 
-////////////////////////////////////////////
-//  echo command
-////////////////////////////////////////////
-
-////////////////////////////////////////////
-// EchoPkgHandler
-////////////////////////////////////////////
-
-const (
-	echoPkgMagic     = 0x20160905
-	maxEchoStringLen = 0xff
-
-	echoHeartbeatRequestString  = "ping"
-	echoHeartbeatResponseString = "pong"
-)
-
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
 	ErrTooLargePackage = errors.New("package length is exceed the echo package's legal maximum length")
@@ -73,8 +57,6 @@ func (p *EchoPackage) Unmarshal(buf *bytes.Buffer) (int, error) {
 	p.B = string(bt)
 	return len(bt), nil
 }
-
-var echoPkgHandler = NewEchoPackageHandler()
 
 type EchoPackageHandler struct{}
 

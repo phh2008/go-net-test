@@ -78,10 +78,10 @@ func (h *EchoMessageHandler) OnCron(session getty.Session) {
 		log.Error("client.getClientSession(session{%s}) = error{%#v}", session.Stat(), err)
 		return
 	}
-	conf := h.Client.conf
+	conf := h.Client.Conf
 	if conf.SessionTimeout2.Nanoseconds() < time.Since(session.GetActive()).Nanoseconds() {
 		log.Warn("session{%s} timeout{%s}, reqNum{%d}",
-			session.Stat(), time.Since(session.GetActive()).String(), clientEchoSession.reqNum)
+			session.Stat(), time.Since(session.GetActive()).String(), clientEchoSession.ReqNum)
 		h.Client.RemoveSession(session)
 		return
 	}
