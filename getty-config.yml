@@ -1,0 +1,28 @@
+# server
+server_host: "127.0.0.1"
+server_port: 8085
+# 连接池连接数目
+connection_number: 2
+# client与server之间连接的心跳周期（秒）
+heartbeat_period: "10s"
+# client与server之间连接的超时时间（秒）
+session_timeout: "20s"
+# app fail fast（秒）
+fail_fast_timeout: "3s"
+# tcp
+getty_session_param:
+  compress_encoding: false
+  tcp_no_delay: true
+  tcp_keep_alive: true
+  #（秒）
+  keep_alive_period: "120s"
+  tcp_r_buf_size: 262144
+  tcp_w_buf_size: 65536
+  #（秒）
+  tcp_read_timeout: "2s"
+  #（秒）
+  tcp_write_timeout: "5s"
+  #（秒）
+  wait_timeout: "1s"
+  max_msg_len: 10240
+  session_name: "echo-client"
