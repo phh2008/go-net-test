@@ -18,22 +18,13 @@
 package netty
 
 import (
-	"errors"
+	"log"
 	"time"
 )
 
 import (
 	"github.com/AlexStocks/getty/transport"
-	log "github.com/AlexStocks/getty/util"
 )
-
-var (
-	errSessionNotExist = errors.New("session not exist")
-)
-
-////////////////////////////////////////////
-// EchoMessageHandler
-////////////////////////////////////////////
 
 type EchoMessageHandler struct {
 	Client *EchoClient
@@ -46,44 +37,40 @@ func NewEchoMessageHandler(client *EchoClient) *EchoMessageHandler {
 }
 
 func (h *EchoMessageHandler) OnOpen(session getty.Session) error {
-	h.Client.AddSession(session)
-
+	h.Client.Session = session
 	return nil
 }
 
 func (h *EchoMessageHandler) OnError(session getty.Session, err error) {
-	log.Info("session{%s} got error{%v}, will be closed.", session.Stat(), err)
-	h.Client.RemoveSession(session)
+	log.Printf("session{%s} got error{%v}, will be closed.\n", session.Stat(), err)
 }
 
 func (h *EchoMessageHandler) OnClose(session getty.Session) {
-	log.Info("session{%s} is closing......", session.Stat())
-	h.Client.RemoveSession(session)
+	log.Printf("session{%s} is closing......\n", session.Stat())
 }
 
 func (h *EchoMessageHandler) OnMessage(session getty.Session, pkg interface{}) {
 	p, ok := pkg.(*EchoPackage)
 	if !ok {
-		log.Error("illegal packge{%#v}", pkg)
+		log.Printf("illegal packge{%#v}\n", pkg)
 		return
 	}
-
-	log.Debug(">>>>>> get echo package{%s}", p)
-	h.Client.UpdateSession(session)
+	log.Printf(">>>>>> get echo package{%s}\n", p)
 }
 
 func (h *EchoMessageHandler) OnCron(session getty.Session) {
-	clientEchoSession, err := h.Client.GetClientEchoSession(session)
-	if err != nil {
-		log.Error("client.getClientSession(session{%s}) = error{%#v}", session.Stat(), err)
-		return
-	}
 	conf := h.Client.Conf
 	if conf.SessionTimeout2.Nanoseconds() < time.Since(session.GetActive()).Nanoseconds() {
-		log.Warn("session{%s} timeout{%s}, reqNum{%d}",
-			session.Stat(), time.Since(session.GetActive()).String(), clientEchoSession.ReqNum)
-		h.Client.RemoveSession(session)
+		log.Printf("session{%s} timeout{%s}\n", session.Stat(), time.Since(session.GetActive()).String())
+
 		return
 	}
-	h.Client.Heartbeat(session)
+	// 发送心跳包
+	var pkg = EchoPackage{
+		B: "ping",
+	}
+	if _, _, err := session.WritePkg(&pkg, conf.GettySessionParam.TcpWriteTimeout2); err != nil {
+		log.Printf("session.WritePkg(session{%s}, pkg{%s}) = error{%v}\n", session.Stat(), pkg, err)
+		session.Close()
+	}
 }

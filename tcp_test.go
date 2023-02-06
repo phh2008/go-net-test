@@ -14,13 +14,9 @@ import (
 func echo(client *netty.EchoClient) {
 	var pkg netty.EchoPackage
 	pkg.B = "hello,你好！"
-	if session := client.SelectSession(); session != nil {
-		_, _, err := session.WritePkg(&pkg, time.Second*3)
-		if err != nil {
-			log.Printf("session.WritePkg(session{%s}, pkg{%s}) = error{%v}\n", session.Stat(), pkg, err)
-			session.Close()
-			client.RemoveSession(session)
-		}
+	_, _, err := client.WritePkg(&pkg)
+	if err != nil {
+		log.Printf("session.WritePkg(pkg{%s}) = error{%v}\n", pkg, err)
 	}
 }
 

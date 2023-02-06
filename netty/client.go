@@ -35,33 +35,15 @@ import (
 	log "github.com/AlexStocks/getty/util"
 )
 
-var (
-	reqID uint32
-	src   = rand.NewSource(time.Now().UnixNano())
-)
-
-const (
-	WritePkgTimeout = time.Millisecond * 2000
-)
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-////////////////////////////////////////////////////////////////////
-// echo client
-////////////////////////////////////////////////////////////////////
-
 type EchoClient struct {
 	Lock        sync.RWMutex
-	Sessions    []*ClientEchoSession
-	GettyClient getty.Client
 	Conf        Config
-}
-
-type ClientEchoSession struct {
-	Session getty.Session
-	ReqNum  int32
+	GettyClient getty.Client
+	Session     getty.Session
 }
 
 // StartClient 启用客户端
@@ -120,7 +102,7 @@ func newSession(conf Config, eventHandler getty.EventListener, pkgHandler getty.
 }
 
 func (c *EchoClient) IsAvailable() bool {
-	if c.SelectSession() == nil {
+	if c.Session == nil {
 		return false
 	}
 	return true
@@ -132,92 +114,10 @@ func (c *EchoClient) Close() {
 	if c.GettyClient != nil {
 		c.GettyClient.Close()
 		c.GettyClient = nil
-		for _, s := range c.Sessions {
-			log.Info("close client session{%s, last active:%s, request number:%d}",
-				s.Session.Stat(), s.Session.GetActive().String(), s.ReqNum)
-			s.Session.Close()
-		}
-		c.Sessions = c.Sessions[:0]
+		c.Session.Close()
 	}
 }
 
-func (c *EchoClient) SelectSession() getty.Session {
-	c.Lock.RLock()
-	defer c.Lock.RUnlock()
-	count := len(c.Sessions)
-	if count == 0 {
-		log.Info("client session array is nil...")
-		return nil
-	}
-	return c.Sessions[rand.Int31n(int32(count))].Session
-}
-
-func (c *EchoClient) AddSession(session getty.Session) {
-	log.Debug("add session{%s}", session.Stat())
-	if session == nil {
-		return
-	}
-	c.Lock.Lock()
-	c.Sessions = append(c.Sessions, &ClientEchoSession{Session: session})
-	c.Lock.Unlock()
-}
-
-func (c *EchoClient) RemoveSession(session getty.Session) {
-	if session == nil {
-		return
-	}
-	c.Lock.Lock()
-	for i, s := range c.Sessions {
-		if s.Session == session {
-			c.Sessions = append(c.Sessions[:i], c.Sessions[i+1:]...)
-			log.Debug("delete session{%s}, its index{%d}", session.Stat(), i)
-			break
-		}
-	}
-	log.Info("after remove session{%s}, left session number:%d", session.Stat(), len(c.Sessions))
-
-	c.Lock.Unlock()
-}
-
-func (c *EchoClient) UpdateSession(session getty.Session) {
-	if session == nil {
-		return
-	}
-	c.Lock.Lock()
-	for i, s := range c.Sessions {
-		if s.Session == session {
-			c.Sessions[i].ReqNum++
-			break
-		}
-	}
-	c.Lock.Unlock()
-}
-
-func (c *EchoClient) GetClientEchoSession(session getty.Session) (ClientEchoSession, error) {
-	var (
-		err         error
-		echoSession ClientEchoSession
-	)
-	c.Lock.Lock()
-	err = errSessionNotExist
-	for _, s := range c.Sessions {
-		if s.Session == session {
-			echoSession = *s
-			err = nil
-			break
-		}
-	}
-	c.Lock.Unlock()
-	return echoSession, err
-}
-
-func (c *EchoClient) Heartbeat(session getty.Session) {
-	var pkg = EchoPackage{
-		B: "ping",
-	}
-	if _, _, err := session.WritePkg(&pkg, WritePkgTimeout); err != nil {
-		log.Warn("session.WritePkg(session{%s}, pkg{%s}) = error{%v}", session.Stat(), pkg, err)
-		session.Close()
-		c.RemoveSession(session)
-	}
+func (c *EchoClient) WritePkg(pkg interface{}) (totalBytesLength int, sendBytesLength int, err error) {
+	return c.Session.WritePkg(pkg, c.Conf.GettySessionParam.TcpWriteTimeout2)
 }

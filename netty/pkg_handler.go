@@ -22,17 +22,12 @@ import (
 	"errors"
 	"fmt"
 	getty "github.com/AlexStocks/getty/transport"
+	"log"
 	"time"
-)
-
-import (
-	log "github.com/AlexStocks/getty/util"
 )
 
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
-	ErrTooLargePackage = errors.New("package length is exceed the echo package's legal maximum length")
-	ErrIllegalMagic    = errors.New("package magic is not right")
 )
 
 type EchoPackage struct {
@@ -93,14 +88,14 @@ func (h *EchoPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, e
 	)
 	startTime = time.Now()
 	if echoPkg, ok = pkg.(*EchoPackage); !ok {
-		log.Error("illegal pkg:%+v\n", pkg)
+		log.Printf("illegal pkg:%+v\n", pkg)
 		return nil, errors.New("invalid echo package")
 	}
 	buf, err = echoPkg.Marshal()
 	if err != nil {
-		log.Warn("binary.Write(echoPkg{%#v}) = err{%#v}", echoPkg, err)
+		log.Printf("binary.Write(echoPkg{%#v}\n) = err{%#v}", echoPkg, err)
 		return nil, err
 	}
-	log.Debug("WriteEchoPkgTimeMs = %s", time.Since(startTime).String())
+	log.Printf("WriteEchoPkgTimeMs = %s\n", time.Since(startTime).String())
 	return buf.Bytes(), nil
 }
