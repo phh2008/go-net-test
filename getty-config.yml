@@ -1,6 +1,6 @@
 # server
-server_host: "127.0.0.1"
-server_port: 8085
+server_host: "192.168.1.10"
+server_port: 9998
 # 连接池连接数目
 connection_number: 2
 # client与server之间连接的心跳周期（秒）
@@ -24,5 +24,5 @@ getty_session_param:
   tcp_write_timeout: "5s"
   #（秒）
   wait_timeout: "1s"
-  max_msg_len: 10240
+  max_msg_len: 102400
   session_name: "echo-client"

@@ -20,9 +20,9 @@ package netty
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	getty "github.com/AlexStocks/getty/transport"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -36,7 +36,7 @@ type EchoPackage struct {
 
 // String toString
 func (p *EchoPackage) String() string {
-	return fmt.Sprintf("echo string:%s", p.B)
+	return p.B
 }
 
 // Marshal 编码
@@ -61,21 +61,25 @@ func NewEchoPackageHandler() *EchoPackageHandler {
 
 func (h *EchoPackageHandler) Read(ss getty.Session, data []byte) (interface{}, int, error) {
 	var (
-		err error
-		len int
-		pkg = new(EchoPackage)
-		buf *bytes.Buffer
+		err    error
+		length int
+		pkg    = new(EchoPackage)
+		buf    *bytes.Buffer
 	)
-
+	length = len(data)
+	str := string(data)
+	if !strings.HasSuffix(str, "\n") {
+		return nil, length, nil
+	}
 	buf = bytes.NewBuffer(data)
-	len, err = pkg.Unmarshal(buf)
+	length, err = pkg.Unmarshal(buf)
 	if err != nil {
 		if err == ErrNotEnoughStream {
 			return nil, 0, nil
 		}
 		return nil, 0, err
 	}
-	return pkg, len, nil
+	return pkg, length, nil
 }
 
 func (h *EchoPackageHandler) Write(ss getty.Session, pkg interface{}) ([]byte, error) {

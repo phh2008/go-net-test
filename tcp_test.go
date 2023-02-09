@@ -1,12 +1,14 @@
 package go_net
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"log"
 	"net"
 	"net-test/netty"
+	"strings"
 	"testing"
 	"time"
 )
@@ -45,14 +47,15 @@ func TestGetty(t *testing.T) {
 	conf.GettySessionParam.WaitTimeout2, _ = time.ParseDuration(conf.GettySessionParam.WaitTimeout)
 
 	log.Println(conf)
-	client := netty.StartClient(conf)
-	if client.IsAvailable() {
-		time.Sleep(time.Second * 3)
-	}
-	for i := 0; i < 100; i++ {
-		echo(client)
-		time.Sleep(time.Second * 2)
-	}
+	_ = netty.StartClient(conf)
+	//if client.IsAvailable() {
+	//	time.Sleep(time.Second * 3)
+	//}
+	//for i := 0; i < 10; i++ {
+	//	echo(client)
+	//	time.Sleep(time.Second * 2)
+	//}
+	select {}
 }
 
 func TestTcpServer(t *testing.T) {
@@ -87,5 +90,28 @@ func worker(conn net.Conn) {
 			fmt.Printf("write to client failed, err: %v\n", err)
 			break
 		}
+	}
+}
+
+func TestTcpClient(t *testing.T) {
+	conn, err := net.Dial("tcp", "192.168.1.10:9998")
+	if err != nil {
+		fmt.Println("dail failed, err :", err)
+		return
+	}
+	reader := bufio.NewReader(conn)
+	for {
+		data, err := reader.ReadString(':')
+		if err != nil {
+			fmt.Printf("read from console,err: %v\n", err)
+			break
+		}
+		data = strings.TrimSpace(data)
+		fmt.Println(data)
+		//_ ,err = conn.Write([]byte(data))
+		//if err != nil {
+		//	fmt.Printf("write failed ,err:%v\n",err)
+		//	break
+		//}
 	}
 }

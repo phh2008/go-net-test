@@ -19,7 +19,6 @@ package netty
 
 import (
 	"log"
-	"time"
 )
 
 import (
@@ -55,19 +54,19 @@ func (h *EchoMessageHandler) OnMessage(session getty.Session, pkg interface{}) {
 		log.Printf("illegal packge{%#v}\n", pkg)
 		return
 	}
-	log.Printf(">>>>>> get echo package{%s}\n", p)
+	log.Printf(">>>>>> get echo package：\n%s\n", p)
 }
 
 func (h *EchoMessageHandler) OnCron(session getty.Session) {
 	conf := h.Client.Conf
-	if conf.SessionTimeout2.Nanoseconds() < time.Since(session.GetActive()).Nanoseconds() {
-		log.Printf("session{%s} timeout{%s}\n", session.Stat(), time.Since(session.GetActive()).String())
-
-		return
-	}
+	//if conf.SessionTimeout2.Nanoseconds() < time.Since(session.GetActive()).Nanoseconds() {
+	//	log.Printf("session{%s} timeout{%s}\n", session.Stat(), time.Since(session.GetActive()).String())
+	//
+	//	return
+	//}
 	// 发送心跳包
 	var pkg = EchoPackage{
-		B: "ping",
+		B: "IDENTITY:",
 	}
 	if _, _, err := session.WritePkg(&pkg, conf.GettySessionParam.TcpWriteTimeout2); err != nil {
 		log.Printf("session.WritePkg(session{%s}, pkg{%s}) = error{%v}\n", session.Stat(), pkg, err)
