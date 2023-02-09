@@ -19,7 +19,9 @@ package netty
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	getty "github.com/AlexStocks/getty/transport"
 	"log"
 	"strings"
@@ -28,6 +30,35 @@ import (
 
 var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
+	// IgnoreBlock 忽略的块
+	IgnoreBlock = map[string]struct{}{
+		"PROTOCOL PREAMBLE:\n": struct{}{},
+		"END PRELUDE:\n":       struct{}{},
+		"IMAGE LIST:\n":        struct{}{},
+		"FILE LIST:\n":         struct{}{},
+		"CURRENT FILE:\n":      struct{}{},
+		"GPI LIST:\n":          struct{}{},
+		"FRAME BUFFER:\n":      struct{}{},
+		"VIDEO FORMATS:\n":     struct{}{},
+		"CONTROL DEFAULT:\n":   struct{}{},
+	}
+	// ControlField 需要保留的控制模块字段
+	ControlField = map[string]struct{}{
+		"Backing Color":          struct{}{},
+		"FG Freeze":              struct{}{},
+		"BG Freeze":              struct{}{},
+		"Lighting Enable":        struct{}{},
+		"Monitor Out":            struct{}{},
+		"Monitor Out RGB":        struct{}{},
+		"Monitor Out Red Only":   struct{}{},
+		"Monitor Out Green Only": struct{}{},
+		"Monitor Out Blue Only":  struct{}{},
+		"Video Format":           struct{}{},
+		"Reference Source":       struct{}{},
+		"FG Input Frame Delay":   struct{}{},
+		"Color Space":            struct{}{},
+		"Matte Enable":           struct{}{},
+	}
 )
 
 type EchoPackage struct {
@@ -49,8 +80,58 @@ func (p *EchoPackage) Marshal() (*bytes.Buffer, error) {
 // Unmarshal 解码
 func (p *EchoPackage) Unmarshal(buf *bytes.Buffer) (int, error) {
 	bt := buf.Bytes()
-	p.B = string(bt)
-	return len(bt), nil
+	length := len(bt)
+	var key string
+	var info = map[string]map[string]string{}
+	for {
+		line, err := buf.ReadString('\n')
+		if err != nil { // EOF
+			fmt.Println(">>>>>>: EOF")
+			break
+		}
+		fmt.Println(">>>>>>>line : ", line)
+		if line == "" {
+			// 每块结束
+			continue
+		}
+		if strings.HasSuffix(line, ":\n") && line == strings.ToUpper(line) {
+			// 标识头
+			key = line
+			continue
+		}
+		// 读到的行没有标识头时忽略
+		if key == "" {
+			continue
+		}
+		// 特殊的标头，跳过解析
+		if _, ok := IgnoreBlock[key]; ok {
+			continue
+		}
+		arr := strings.Split(line, ": ")
+		k := arr[0]
+		v := ""
+		if key == "CONTROL:\n" {
+			if _, ok := ControlField[k]; !ok {
+				continue
+			}
+		}
+		if len(arr) > 1 {
+			v = arr[1]
+		}
+		value := info[key]
+		if value == nil {
+			value = map[string]string{}
+		}
+		value[k] = v
+		info[key] = value
+	}
+	jsonBytes, err := json.Marshal(info)
+	if err != nil {
+		log.Println("Marshal error: ", err)
+		return length, err
+	}
+	p.B = string(jsonBytes)
+	return length, nil
 }
 
 type EchoPackageHandler struct{}
