@@ -32,34 +32,34 @@ var (
 	ErrNotEnoughStream = errors.New("packet stream is not enough")
 	// IgnoreBlock 忽略的块
 	IgnoreBlock = map[string]struct{}{
-		"PROTOCOL PREAMBLE:\n": struct{}{},
-		"END PRELUDE:\n":       struct{}{},
-		"IMAGE LIST:\n":        struct{}{},
-		"FILE LIST:\n":         struct{}{},
-		"CURRENT FILE:\n":      struct{}{},
-		"GPI LIST:\n":          struct{}{},
-		"FRAME BUFFER:\n":      struct{}{},
-		"VIDEO FORMATS:\n":     struct{}{},
-		"CONTROL DEFAULT:\n":   struct{}{},
+		"PROTOCOL PREAMBLE": struct{}{},
+		"END PRELUDE":       struct{}{},
+		"IMAGE LIST":        struct{}{},
+		"FILE LIST":         struct{}{},
+		"CURRENT FILE":      struct{}{},
+		"GPI LIST":          struct{}{},
+		"FRAME BUFFER":      struct{}{},
+		"VIDEO FORMATS":     struct{}{},
+		"CONTROL DEFAULT":   struct{}{},
 	}
 	// ControlField 需要保留的控制模块字段
 	ControlField = map[string]struct{}{
-		"Backing Color":          struct{}{},
-		"FG Freeze":              struct{}{},
-		"BG Freeze":              struct{}{},
-		"Lighting Enable":        struct{}{},
-		"Monitor Out":            struct{}{},
-		"Monitor Out RGB":        struct{}{},
-		"Monitor Out Red Only":   struct{}{},
-		"Monitor Out Green Only": struct{}{},
-		"Monitor Out Blue Only":  struct{}{},
-		"Video Format":           struct{}{},
-		"Reference Source":       struct{}{},
-		"FG Input Frame Delay":   struct{}{},
-		"Color Space":            struct{}{},
-		"Matte Enable":           struct{}{},
+		"Backing Color":        struct{}{},
+		"FG Freeze":            struct{}{},
+		"BG Freeze":            struct{}{},
+		"Lighting Enable":      struct{}{},
+		"Monitor Out":          struct{}{},
+		"Video Format":         struct{}{},
+		"Reference Source":     struct{}{},
+		"FG Input Frame Delay": struct{}{},
+		"Color Space":          struct{}{},
+		"Matte Enable":         struct{}{},
 	}
 )
+
+const HeadSuffix = ":\n"
+const LineBreak = "\n"
+const LineBreakChar = '\n'
 
 type EchoPackage struct {
 	B string
@@ -84,19 +84,19 @@ func (p *EchoPackage) Unmarshal(buf *bytes.Buffer) (int, error) {
 	var key string
 	var info = map[string]map[string]string{}
 	for {
-		line, err := buf.ReadString('\n')
+		line, err := buf.ReadString(LineBreakChar)
 		if err != nil { // EOF
 			fmt.Println(">>>>>>: EOF")
 			break
 		}
-		fmt.Println(">>>>>>>line : ", line)
-		if line == "" {
+		//fmt.Println(">>>>>>>line : ", line)
+		if line == "" || line == LineBreak {
 			// 每块结束
 			continue
 		}
-		if strings.HasSuffix(line, ":\n") && line == strings.ToUpper(line) {
-			// 标识头
-			key = line
+		if strings.HasSuffix(line, HeadSuffix) && line == strings.ToUpper(line) {
+			// 标识头（全大写且以:\n结尾）
+			key = strings.ReplaceAll(line, HeadSuffix, "")
 			continue
 		}
 		// 读到的行没有标识头时忽略
@@ -110,13 +110,13 @@ func (p *EchoPackage) Unmarshal(buf *bytes.Buffer) (int, error) {
 		arr := strings.Split(line, ": ")
 		k := arr[0]
 		v := ""
-		if key == "CONTROL:\n" {
+		if key == "CONTROL" {
 			if _, ok := ControlField[k]; !ok {
 				continue
 			}
 		}
 		if len(arr) > 1 {
-			v = arr[1]
+			v = strings.ReplaceAll(arr[1], LineBreak, "")
 		}
 		value := info[key]
 		if value == nil {
