@@ -48,6 +48,7 @@ func TestGetty(t *testing.T) {
 
 	log.Println(conf)
 	_ = netty.StartClient(conf)
+	fmt.Println(">>>>>>>>>>>>>")
 	//if client.IsAvailable() {
 	//	time.Sleep(time.Second * 3)
 	//}

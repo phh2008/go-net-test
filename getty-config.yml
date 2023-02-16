@@ -1,6 +1,6 @@
 # server
-server_host: "192.168.1.10"
-server_port: 9998
+server_host: "127.0.0.1"
+server_port: 8085
 # 连接池连接数目
 connection_number: 2
 # client与server之间连接的心跳周期（秒）

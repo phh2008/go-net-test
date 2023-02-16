@@ -61,7 +61,8 @@ func StartClient(conf Config) *EchoClient {
 	messageHandler := NewEchoMessageHandler(client)
 	// 解码处理器
 	var pkgHandler = NewEchoPackageHandler()
-	client.GettyClient.RunEventLoop(newSession(conf, messageHandler, pkgHandler))
+	// 异步执行，如果创建连接失败会重试就会阻塞
+	go client.GettyClient.RunEventLoop(newSession(conf, messageHandler, pkgHandler))
 	return client
 }
 
